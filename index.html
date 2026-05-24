@@ -660,38 +660,28 @@
 
         // PERBAIKAN UNIFIED: Menggabungkan POST murni & otomatis fallback ke GET jika terkena batasan CORS
         // PENGGANTI FUNGSI callGAS DI index.html
+       // FUNGSI KONEKSI ANTI-CORS FINAL
         async function callGAS(action, extraData = {}) {
             const payload = { action: action, ...extraData };
             
-            if (IS_PREVIEW) return { status: "success", message: "Preview Mode" };
+            if (IS_PREVIEW) return { status: "success", message: "Preview Aktif" };
 
             try {
+                // Menggunakan text/plain agar browser tidak memicu blokir preflight OPTIONS
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                    },
                     body: JSON.stringify(payload)
                 });
                 
-                // Ambil respons sebagai teks mentah dulu untuk deteksi error Google
-                const rawText = await response.text();
-                
-                try {
-                    // Coba terjemahkan teks menjadi JSON
-                    return JSON.parse(rawText);
-                } catch (parseErr) {
-                    console.error("Respons Server BUKAN JSON:", rawText);
-                    
-                    // Deteksi jika Google merespons dengan halaman HTML/Login (Blokir Izin)
-                    if (rawText.toLowerCase().includes("<!doctype html>") || rawText.toLowerCase().includes("<html")) {
-                        throw new Error("Akses Server Ditolak! Cek ulang pengaturan Deploy GAS Anda (Wajib 'Execute as: Me' & 'Access: Anyone').");
-                    }
-                    throw new Error("Respons server tidak dikenali.");
-                }
+                return await response.json();
             } catch (error) {
-                console.error("API Fetch Error:", error);
-                throw new Error(error.message || "Gagal menghubungi Cloud GAS. Periksa jaringan atau URL.");
+                console.error("Fetch Error:", error);
+                throw new Error("Failed to fetch: Akses ditolak. Pastikan URL berakhiran /exec dan Deploy diatur ke 'Anyone'.");
             }
         }
-
         window.addEventListener('DOMContentLoaded', () => {
             initAppSync();
             lucide.createIcons();
