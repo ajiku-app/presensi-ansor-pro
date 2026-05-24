@@ -169,25 +169,26 @@
         let appState = { currentView: "login", currentUser: null, peserta: [], presensi: [], tim: [], branding: {appName: "SI-ANSOR PRO"}, sesiAktif: {sesiKe: "1", waktu: "08:00", maxTelatLimit: 15, restLimit: 15}, stats: {total:0, hadir:0, tepat:0, terlambat:0} };
 
         // FUNGSI SUPER AMAN ANTI-CORS (Bypass via URLSearchParams)
+        // FUNGSI SUPER AMAN ANTI-CORS (Bypass via GET Request Murni)
         async function callGAS(action, extraData = {}) {
             const payload = { action: action, ...extraData };
             if (IS_PREVIEW) return { status: "success", message: "Preview OK" };
 
             try {
-                // FORM-URL-ENCODED MURNI. BROWSER TIDAK AKAN MENGIRIM PREFLIGHT (OPTIONS)
-                const formData = new URLSearchParams();
-                formData.append("jsonData", JSON.stringify(payload));
+                // Mengubah semua data menjadi teks URL (Mustahil diblokir CORS)
+                const encodedData = encodeURIComponent(JSON.stringify(payload));
+                const url = `${GAS_URL}?action=${action}&jsonData=${encodedData}`;
 
-                const response = await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: formData // TANPA HEADERS SAMA SEKALI
+                const response = await fetch(url, {
+                    method: 'GET',
+                    redirect: 'follow' // Wajib agar Google otomatis mengarahkan ke data JSON
                 });
 
                 if (!response.ok) throw new Error("HTTP Status: " + response.status);
                 return await response.json();
             } catch (err) {
                 console.error("Fetch API Error:", err);
-                alert("GAGAL TERHUBUNG KE SERVER! Pastikan:\n1. URL GAS Anda berakhiran '/exec'.\n2. Anda telah melakukan Deploy sebagai 'Penerapan Baru'.\n3. Akses disetel ke 'Siapa Saja (Anyone)'.");
+                alert("KONEKSI DIBLOKIR BROWSER!\n\nPastikan:\n1. Anda mencoba membukanya di Mode Samaran (Incognito).\n2. Tidak ada ekstensi AdBlocker yang menyala.");
                 throw new Error("Koneksi diblokir oleh browser / Google.");
             }
         }
