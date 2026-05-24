@@ -659,34 +659,36 @@
         }
 
         // PERBAIKAN UNIFIED: Menggabungkan POST murni & otomatis fallback ke GET jika terkena batasan CORS
+        // PENGGANTI FUNGSI callGAS DI index.html
         async function callGAS(action, extraData = {}) {
             const payload = { action: action, ...extraData };
             
-            if (IS_PREVIEW) {
-                return { status: "success", message: "Preview Mode Mode Aktif" };
-            }
+            if (IS_PREVIEW) return { status: "success", message: "Preview Mode" };
 
             try {
-                // Jalur Utama: POST Request menggunakan text/plain (Bypass CORS Preflight OPTIONS)
                 const response = await fetch(GAS_URL, {
                     method: 'POST',
-                    redirect: 'follow',
                     body: JSON.stringify(payload)
                 });
-                if (!response.ok) throw new Error("HTTP Status " + response.status);
-                return await response.json();
-            } catch (postError) {
-                console.warn("POST gagal karena kendala CORS/Firewall, mencoba Jalur Fallback GET...", postError);
+                
+                // Ambil respons sebagai teks mentah dulu untuk deteksi error Google
+                const rawText = await response.text();
+                
                 try {
-                    // Jalur Cadangan: GET Request Terenkripsi Stringify JSON murni
-                    const fallbackUrl = `${GAS_URL}?action=${action}&jsonData=${encodeURIComponent(JSON.stringify(payload))}`;
-                    const response = await fetch(fallbackUrl);
-                    if (!response.ok) throw new Error("HTTP Status Fallback " + response.status);
-                    return await response.json();
-                } catch (getError) {
-                    console.error("Kedua jalur komunikasi cloud terblokir browser.", getError);
-                    throw new Error("Gagal berkomunikasi dengan server cloud GAS. Pastikan deployment diatur ke 'Anyone'.");
+                    // Coba terjemahkan teks menjadi JSON
+                    return JSON.parse(rawText);
+                } catch (parseErr) {
+                    console.error("Respons Server BUKAN JSON:", rawText);
+                    
+                    // Deteksi jika Google merespons dengan halaman HTML/Login (Blokir Izin)
+                    if (rawText.toLowerCase().includes("<!doctype html>") || rawText.toLowerCase().includes("<html")) {
+                        throw new Error("Akses Server Ditolak! Cek ulang pengaturan Deploy GAS Anda (Wajib 'Execute as: Me' & 'Access: Anyone').");
+                    }
+                    throw new Error("Respons server tidak dikenali.");
                 }
+            } catch (error) {
+                console.error("API Fetch Error:", error);
+                throw new Error(error.message || "Gagal menghubungi Cloud GAS. Periksa jaringan atau URL.");
             }
         }
 
